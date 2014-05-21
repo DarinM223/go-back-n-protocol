@@ -1,0 +1,68 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+DATA_SIZE	packet.h	2;"	d
+HEADER_SIZE	packet.h	1;"	d
+PACKET_SIZE	packet.h	3;"	d
+SERVER_PORT	webclient.cpp	11;"	d	file:
+TIMEOUT	webserver.cpp	18;"	d	file:
+TYPES	packet.h	/^} TYPES;$/;"	t	typeref:enum:__anon1
+TYPE_ACK	packet.h	/^        TYPE_ACK,$/;"	e	enum:__anon1
+TYPE_END	packet.h	/^        TYPE_END$/;"	e	enum:__anon1
+TYPE_MESSAGE	packet.h	/^        TYPE_MESSAGE,$/;"	e	enum:__anon1
+TYPE_REQUEST	packet.h	/^        TYPE_REQUEST,$/;"	e	enum:__anon1
+WINDOW_SIZE	webserver.cpp	17;"	d	file:
+ack	packet.h	/^                int ack;$/;"	m	class:packet
+add_packet	window.cpp	/^bool window::add_packet(packet p) {$/;"	f	class:window
+copyToData	packet.cpp	/^void packet::copyToData(char *stuff, int size) {$/;"	f	class:packet
+corrupt_prob	webclient.cpp	/^double corrupt_prob = 0;$/;"	v
+currSize	window.h	/^                int currSize;$/;"	m	class:window
+data	packet.h	/^                char data[DATA_SIZE];$/;"	m	class:packet
+deletePacket	window.cpp	/^bool window::deletePacket(packet *p) {$/;"	f	class:window
+dependencies	window.cpp	/^map<packet*, int> window::dependencies;$/;"	m	class:window	file:
+dependencies	window.h	/^                static map<packet*, int> dependencies;$/;"	m	class:window
+fin	packet.h	/^                int fin;$/;"	m	class:packet
+getACK	packet.h	/^                int getACK() const { return ack; }$/;"	f	class:packet
+getData	packet.h	/^                char *getData() { return data; }$/;"	f	class:packet
+getLength	packet.h	/^                int getLength() const { return length; }$/;"	f	class:packet
+getPacket	window.cpp	/^bool window::getPacket(int index, packet &p) {$/;"	f	class:window
+getSeqNo	packet.h	/^                int getSeqNo() const { return seq_no; }$/;"	f	class:packet
+getType	packet.h	/^                int getType() const { return type; }$/;"	f	class:packet
+getWindowSize	window.h	/^                int getWindowSize() { return window_size; }$/;"	f	class:window
+handleACK	window.cpp	/^bool window::handleACK(packet ackpacket) {$/;"	f	class:window
+isFin	packet.h	/^                bool isFin() const {return fin;}$/;"	f	class:packet
+length	packet.h	/^                int length;$/;"	m	class:packet
+loss_prob	webclient.cpp	/^double loss_prob = 0;$/;"	v
+main	packet_unit_test.cpp	/^int main() $/;"	f
+main	webclient.cpp	/^int main(int argc, char *argv[]) $/;"	f
+main	webserver.cpp	/^int main(int argc, char *argv[]) $/;"	f
+main	window_unit_test.cpp	/^int main() $/;"	f
+operator =	packet.cpp	/^packet packet::operator=(const packet &p) {$/;"	f	class:packet
+operator =	window.cpp	/^window window::operator=(const window& win) {$/;"	f	class:window
+outputFile	webclient.cpp	/^FILE *outputFile = NULL;$/;"	v
+packList	window.h	/^                packet **packList; \/\/list of pointers to packets$/;"	m	class:window
+packet	packet.cpp	/^packet::packet(char* s) {$/;"	f	class:packet
+packet	packet.cpp	/^packet::packet(const packet &p) {$/;"	f	class:packet
+packet	packet.cpp	/^packet::packet(int type, int ack, int seq_no, int length, int fin) {$/;"	f	class:packet
+packet	packet.h	/^                packet() { }$/;"	f	class:packet
+packet	packet.h	/^class packet $/;"	c
+packetStr	packet.cpp	/^char* packet::packetStr() const {$/;"	f	class:packet
+printWindow	window_unit_test.cpp	/^void printWindow(window w) {$/;"	f
+printWindow2	window_unit_test.cpp	/^void printWindow2(window w) {$/;"	f
+printWindow3	window_unit_test.cpp	/^void printWindow3(window w) {$/;"	f
+properACKForPacket	packet.cpp	/^bool packet::properACKForPacket(packet ackpacket) {$/;"	f	class:packet
+readFromFile	packet.cpp	/^void packet::readFromFile(FILE *resource) {$/;"	f	class:packet
+sendACK	webclient.cpp	/^void sendACK(int _packet, int sockfd, struct sockaddr_in si_send, bool fin = false) $/;"	f
+sendRequestPacket	webclient.cpp	/^void sendRequestPacket(char *filename, int sockfd, struct sockaddr_in si_send) {$/;"	f
+seq_no	packet.h	/^                int seq_no;$/;"	m	class:packet
+slide_window	window.cpp	/^void window::slide_window() {$/;"	f	class:window
+storeInFile	webclient.cpp	/^void storeInFile(int length, char* packetStr) $/;"	f
+type	packet.h	/^                int type;$/;"	m	class:packet
+window	window.cpp	/^window::window(const window& win) {$/;"	f	class:window
+window	window.cpp	/^window::window(int window_size) {$/;"	f	class:window
+window	window.h	/^class window$/;"	c
+window_size	window.h	/^                int window_size;$/;"	m	class:window
+~window	window.cpp	/^window::~window() {$/;"	f	class:window
