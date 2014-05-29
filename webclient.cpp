@@ -7,10 +7,8 @@
 #include <string.h>
 #include <strings.h>
 
-#include "packet.h"
+#include "rdt_packet.h"
 #define SERVER_PORT 8080
-
-FILE *outputFile = NULL;
 
 //packets.h
 //client.cpp
@@ -32,39 +30,7 @@ FILE *outputFile = NULL;
 //TODO: change request and ACKs so it properly sends ACKS
 double corrupt_prob = 0;
 double loss_prob = 0;
-
-void storeInFile(int length, char* packetStr) 
-{
-        int i;
-        for (i = HEADER_SIZE; i < length; i++) {
-                char byte = *(packetStr+i);
-                fprintf(outputFile, "%c", byte);
-                fflush(stdout);
-        }
-}
-
-void sendACK(int _packet, int sockfd, struct sockaddr_in si_send, bool fin = false) 
-{
-        //construct ACK packet
-        packet ack_packet(TYPE_ACK, _packet, HEADER_SIZE, fin);
-        char *strp = ack_packet.packetStr();
-        
-        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof( si_send));
-        free(strp);
-}
-
-void sendRequestPacket(char *filename, int sockfd, struct sockaddr_in si_send) {
-        //packet request_packet;
-        if (strlen(filename) > DATA_SIZE) 
-                perror("filename is too long");
-        packet request_packet(TYPE_REQUEST, 0,  sizeof(filename) + HEADER_SIZE, false);
-        request_packet.copyToData(filename, strlen(filename)+1);
-
-        char *strp = createPacketStr(request_packet);
-        
-        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
-        free(strp);
-}
+FILE *outputFile = NULL;
 
 int main(int argc, char *argv[]) 
 {
@@ -99,31 +65,64 @@ int main(int argc, char *argv[])
         outputFile = fopen(out, "w");
         free(out);
 
-        //send initial request packet
-        char pkt[1000];
+        char pkt[PACKET_SIZE];
         socklen_t slen = sizeof(si_send);
         int last_seqno = -1;
+        int last_contentlength = -1;
+        rdt_packet last_seqpacket;
 
-        sendRequestPacket(out, sockfd, si_send);
+        //send initial request packet
+        //content length sizeof filename, ACK#, SEQ# are 0 because it is just starting
+        rdt_packet request_packet;
+        request_packet.copyToData(filename, strlen(filename)+1); 
 
+        
+        //create a string from the packet and send it
+        char *strp = request_packet.packetStr(); 
+        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+        free(strp);
+        strp = NULL;
+
+        //TODO: make proper output messages
+        //receive data packets, if data packet is in order, send ack for the packet, otherwise send ack for last sequence number
         while (1) {
                 recvfrom(sockfd, pkt, PACKET_SIZE, 0, (struct sockaddr*) &si_send, &slen);
                 //get packet from response
-                //packet p = getPacketFromStr(pkt);
-                packet p(pkt);
-                //printf("Received packet: %d\n", p.seq_no);
-                printf("Received packet: %d\n", p.getSeqNo());
-                if (p.getSeqNo() == last_seqno+1) { //received in order packet 
-                        last_seqno++;
+                rdt_packet p(pkt);
+                double r = random_num();
+                if (r < corrupt_prob) {
+                        printf("Packet was corrupted!\n");
+                } else if (r < loss_prob) {
+                        printf("Packet was lost!\n");
+                } else if (p.getType() == rdt_packet::TYPE_DATA && p.getSeqNo() == last_seqno+1) { //received in order packet 
+                        printf("Received packet: %d\n", p.getSeqNo());
+                        //last_seqno++;
+                        last_seqpacket = p;
+                        last_contentlength = p.getContentLength();
                         printf("Packet valid, sending ACK\n");
                         //send ACK of the received packet
-                        sendACK(p.getSeqNo(), sockfd, si_send); 
-                        storeInFile(p.getLength(), pkt);                        
-                        if (p.getType() == TYPE_END) break; //if the packet is the end of the packet, stop receiving
-                } else { //if packet is out of order don't do nuthin
+                        //rdt_packet ack_packet(rdt_packet::TYPE_ACK, p.getSeqNo(), p.getSeqNo()+p.getContentLength(), 0, false); //add 1 to sequence number?
+                        rdt_packet ack_packet((p.isFin() ? rdt_packet::TYPE_FINACK : rdt_packet::TYPE_ACK), p.getACK(), p.getSeqNo()+p.getContentLength()+p.isFin(), 0, p.isFin());
+                        strp = ack_packet.packetStr();
+                        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+                        free(strp);
+                        strp = NULL;
+
+                        for (int i = 0; i < p.getContentLength(); i++) {
+                                char byte = *(p.getData()+i);
+                                fprintf(outputFile, "%c", byte);
+                                fflush(stdout);
+                        }
+                        if (p.getType() == rdt_packet::TYPE_END) break; //if the packet is the end of the packet, stop receiving
+                } else { //if packet is out of order resend ack for last received
                         printf("Packet was out of order. Sending ACK for packet %d\n", last_seqno);
                         //send ACK of the last properly received sequence number
-                        sendACK(last_seqno, sockfd, si_send);
+                        //rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqno, last_seqno+last_contentlength, 0, false); //add 1 to sequence number?
+                        rdt_packet ack_packet((last_seqpacket.isFin() ? rdt_packet::TYPE_FINACK : rdt_packet::TYPE_ACK), last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
+                        strp = ack_packet.packetStr();
+                        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+                        free(strp);
+                        strp = NULL;
                 }
         }
         printf("Goodbye");

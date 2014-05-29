@@ -3,17 +3,17 @@
 #include <string.h>
 #include <assert.h>
 #include <malloc.h>
-#include "packet.h"
+#include "rdt_packet.h"
 using namespace std;
 
 int main() 
 {
         //TODO: Unit test constructors
         char *filename = "Hello.txt";
-        packet p(TYPE_MESSAGE, 20, 20, sizeof(filename)+HEADER_SIZE, false);
+        rdt_packet p(rdt_packet::TYPE_DATA, 20, 20, sizeof(filename)+HEADER_SIZE, false);
         p.copyToData(filename, strlen(filename)+1);
-        packet p2(p.packetStr());
-        packet p3(p.packetStr());
+        rdt_packet p2(p.packetStr());
+        rdt_packet p3(p.packetStr());
 
         assert(p.getLength() == p2.getLength());
         assert(p.getSeqNo() == p2.getSeqNo());
@@ -29,6 +29,9 @@ int main()
         fclose(resource);
         free(str);
         cout << "All test passed!" << endl;
+        for (int i = 0; i < 20; i++) {
+                cout << random_num() << endl;
+        }
         return 0;
 }
 

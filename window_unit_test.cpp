@@ -1,11 +1,11 @@
-#include "window.h"
+#include "rdt_window.h"
 #include <iostream>
 #include <assert.h>
 using namespace std;
 
-void printWindow(window w) {
+void printWindow(rdt_window w) {
         for (int i = 0; i < w.getWindowSize(); i++) {
-                packet p;
+                rdt_packet p;
                 if (w.getPacket(i, p)) {
                         cout << "Packet sequence no: " << p.getSeqNo() << " ACK no: " << p.getACK() << " FIN: " << p.isFin() << " Length: " << p.getLength() << " DATA: " << p.getData() << endl;
                 }
@@ -13,22 +13,22 @@ void printWindow(window w) {
         cout << endl;
 }
 
-void printWindow2(window w) {
+void printWindow2(rdt_window w) {
         printWindow(w);
 }
-void printWindow3(window w) {
+void printWindow3(rdt_window w) {
         printWindow2(w);
         printWindow(w);
 }
 
 int main() 
 {
-        window w(4);
-        packet p1(TYPE_MESSAGE, 0, 0, 20, 0);
-        packet p2(TYPE_ACK, 10, 10, 50, 0);
-        packet p3(TYPE_END, 101, 100, 4, 1);
-        packet p4(TYPE_REQUEST, 0, 0, 4, 0);
-        packet p5(TYPE_MESSAGE, 5, 10, 5, 0);
+        rdt_window w(4);
+        rdt_packet p1(rdt_packet::TYPE_DATA, 0, 0, 20, 0);
+        rdt_packet p2(rdt_packet::TYPE_ACK, 10, 10, 50, 0);
+        rdt_packet p3(rdt_packet::TYPE_END, 101, 100, 4, 1);
+        rdt_packet p4(rdt_packet::TYPE_REQUEST, 0, 0, 4, 0);
+        rdt_packet p5(rdt_packet::TYPE_DATA, 5, 10, 5, 0);
 
         assert(w.add_packet(p1));
         assert(w.add_packet(p2));
@@ -36,7 +36,7 @@ int main()
         assert(w.add_packet(p4));
         assert(!w.add_packet(p5));
 
-        window w2(5);
+        rdt_window w2(5);
         assert(w2.add_packet(p1));
         assert(w2.add_packet(p2));
         assert(w2.add_packet(p3));
@@ -49,6 +49,10 @@ int main()
         printWindow2(w);
         w2.slide_window();
         w2.slide_window();
+        printWindow2(w2);
+
+        w2.clear();
+        assert(w2.getCurrSize() == 0);
         printWindow2(w2);
 
         cout << "All test passed!" << endl;

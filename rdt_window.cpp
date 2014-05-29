@@ -1,13 +1,13 @@
-#include "window.h"
+#include "rdt_window.h"
 #include <malloc.h>
 
-window::window(int window_size) {
+rdt_window::rdt_window(int window_size) {
         this->window_size = window_size;
-        packList = new packet* [window_size];
+        packList = new rdt_packet* [window_size];
         currSize = 0;
 }
-window::window(const window& win) {
-        this->packList = new packet* [win.window_size];
+rdt_window::rdt_window(const rdt_window& win) {
+        this->packList = new rdt_packet* [win.window_size];
         for (int i = 0; i < win.window_size; i++) {
                 this->packList[i] = win.packList[i];
                 dependencies[packList[i]]++;
@@ -15,8 +15,8 @@ window::window(const window& win) {
         this->window_size = win.window_size;
         this->currSize = win.currSize;
 }
-window window::operator=(const window& win) {
-        this->packList = new packet* [win.window_size];
+rdt_window rdt_window::operator=(const rdt_window& win) {
+        this->packList = new rdt_packet* [win.window_size];
         for (int i = 0; i < win.window_size; i++) {
                 this->packList[i] = win.packList[i];
                 dependencies[packList[i]]++;
@@ -26,7 +26,7 @@ window window::operator=(const window& win) {
         return *this;
 }
 
-void window::slide_window() {
+void rdt_window::slide_window() {
         if (window_size <= 1) return;
         for (int i = 1; i < window_size; i++) {
                 if (packList[i-1]) {
@@ -38,7 +38,17 @@ void window::slide_window() {
         currSize--;
 }
 
-bool window::deletePacket(packet *p) {
+void rdt_window::clear() {
+        for (int i = 0; i < window_size; i++) {
+                if (packList[i]) {
+                        deletePacket(packList[i]);
+                        packList[i] = NULL;
+                }
+        }
+        currSize = 0;
+}
+
+bool rdt_window::deletePacket(rdt_packet *p) {
         //return false if you can't find the packet in the window
         if (dependencies.find(p) == dependencies.end()) {
                 return false;
@@ -56,9 +66,9 @@ bool window::deletePacket(packet *p) {
         return true;
 }
 
-bool window::add_packet(packet p) {
+bool rdt_window::add_packet(rdt_packet p) {
         if (currSize >= window_size) return false;
-        packet *new_packet = new packet(p);
+        rdt_packet *new_packet = new rdt_packet(p);
         packList[currSize] = new_packet;
         currSize++;
 
@@ -71,9 +81,9 @@ bool window::add_packet(packet p) {
         return true;
 }
 
-bool window::getPacket(int index, packet &p) {
+bool rdt_window::getPacket(int index, rdt_packet &p) {
         if (!(index >= 0 && index < currSize)) return false;
-        packet *ptr = packList[index];
+        rdt_packet *ptr = packList[index];
 
         //if the dependency for the packet pointer doesn't exist or is 0 somebody deleted it already
         if (dependencies.find(ptr) == dependencies.end()) return false;
@@ -83,9 +93,9 @@ bool window::getPacket(int index, packet &p) {
         return true;
 }
 
-bool window::handleACK(packet ackpacket) {
+bool rdt_window::handleACK(rdt_packet ackpacket) {
         for (int i = 0; i < currSize; i++) {
-                packet* p = packList[i];
+                rdt_packet* p = packList[i];
                 //once you find a matching packet, slide window for every element before and including the matching packet
                 if (p->properACKForPacket(ackpacket)) {
                         for (int j = 0; j <= i; j++) {
@@ -98,7 +108,7 @@ bool window::handleACK(packet ackpacket) {
         return false;
 }
 
-window::~window() {
+rdt_window::~rdt_window() {
         for (int i = 0; i < window_size; i++) {
                 if (packList[i]) {
                         deletePacket(packList[i]);
@@ -109,4 +119,4 @@ window::~window() {
                 packList = NULL;
         }
 }
-map<packet*, int> window::dependencies;
+map<rdt_packet*, int> rdt_window::dependencies;
