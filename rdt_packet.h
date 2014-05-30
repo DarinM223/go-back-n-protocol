@@ -18,7 +18,6 @@ class rdt_packet
                         TYPE_REQUEST,
                         TYPE_DATA,
                         TYPE_ACK,
-                        TYPE_FINACK,
                         TYPE_END
                 } TYPES;
                 int getType() const { return type; }

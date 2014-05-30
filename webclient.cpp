@@ -101,8 +101,7 @@ int main(int argc, char *argv[])
                         last_contentlength = p.getContentLength();
                         printf("Packet valid, sending ACK\n");
                         //send ACK of the received packet
-                        //rdt_packet ack_packet(rdt_packet::TYPE_ACK, p.getSeqNo(), p.getSeqNo()+p.getContentLength(), 0, false); //add 1 to sequence number?
-                        rdt_packet ack_packet((p.isFin() ? rdt_packet::TYPE_FINACK : rdt_packet::TYPE_ACK), p.getACK(), p.getSeqNo()+p.getContentLength()+p.isFin(), 0, p.isFin());
+                        rdt_packet ack_packet(rdt_packet::TYPE_ACK, p.getACK(), p.getSeqNo()+p.getContentLength()+p.isFin(), 0, p.isFin());
                         strp = ack_packet.packetStr();
                         sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
                         free(strp);
@@ -114,16 +113,15 @@ int main(int argc, char *argv[])
                                 fflush(stdout);
                         }
                         if (p.getType() == rdt_packet::TYPE_END) break; //if the packet is the end of the packet, stop receiving
-                } else { //if packet is out of order resend ack for last received
+                } else if (p.getType() == rdt_packet::TYPE_DATA) { //if packet is out of order resend ack for last received
                         printf("Packet was out of order. Sending ACK for packet %d\n", last_seqno);
                         //send ACK of the last properly received sequence number
-                        //rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqno, last_seqno+last_contentlength, 0, false); //add 1 to sequence number?
-                        rdt_packet ack_packet((last_seqpacket.isFin() ? rdt_packet::TYPE_FINACK : rdt_packet::TYPE_ACK), last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
+                        rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
                         strp = ack_packet.packetStr();
                         sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
                         free(strp);
                         strp = NULL;
-                }
+                } 
         }
         printf("Goodbye");
         close(sockfd);

@@ -46,10 +46,16 @@ int main()
         printWindow3(w);
         w.slide_window();
         w.slide_window();
+        w.slide_window();
+
         printWindow2(w);
         w2.slide_window();
         w2.slide_window();
         printWindow2(w2);
+
+        for (int i = w2.getCurrSize(); i < w2.getWindowSize(); i++) {
+                cout << "Empty here!" << endl;
+        }
 
         w2.clear();
         assert(w2.getCurrSize() == 0);
