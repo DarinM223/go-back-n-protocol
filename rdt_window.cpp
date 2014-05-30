@@ -1,10 +1,32 @@
 #include "rdt_window.h"
 #include <malloc.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+
+void resendAllPackets(rdt_window &w, int sockfd, struct sockaddr_in addr) {
+        for (int i = 0; i < w.getCurrSize(); i++) {
+                rdt_packet p;
+                w.getPacket(i, p);
+                
+                char *strp = p.packetStr();
+                sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&addr, sizeof(addr));
+        } 
+}
 
 rdt_window::rdt_window(int window_size) {
         this->window_size = window_size;
         packList = new rdt_packet* [window_size];
         currSize = 0;
+        this->totalPackets = 0;
+        this->resource = NULL;
 }
 rdt_window::rdt_window(const rdt_window& win) {
         this->packList = new rdt_packet* [win.window_size];
@@ -14,6 +36,8 @@ rdt_window::rdt_window(const rdt_window& win) {
         }
         this->window_size = win.window_size;
         this->currSize = win.currSize;
+        this->totalPackets = 0;
+        this->resource = NULL;
 }
 rdt_window rdt_window::operator=(const rdt_window& win) {
         this->packList = new rdt_packet* [win.window_size];
@@ -23,6 +47,8 @@ rdt_window rdt_window::operator=(const rdt_window& win) {
         }
         this->window_size = win.window_size;
         this->currSize = win.currSize;
+        this->totalPackets = 0;
+        this->resource = NULL;
         return *this;
 }
 
@@ -38,6 +64,27 @@ void rdt_window::slide_window() {
         currSize--;
 }
 
+vector<char*> rdt_window::fillWindow() {
+        vector<char*> packVec;
+        //int curr_seq_no = LAST_RECV_PACKET.getACK(); 
+        int curr_seq_no = this->last_rdt_packet.getACK();
+        //for all empty slots in window and while TOTAL_PACKETS is greater than 0
+        for (int i = getCurrSize(); (i < getWindowSize() && this->totalPackets > 0); i++) {
+                //create new packet and send them
+                rdt_packet respond_packet(rdt_packet::TYPE_DATA, curr_seq_no, this->last_rdt_packet.getSeqNo() + this->last_rdt_packet.getContentLength(), 0, 0);
+                respond_packet.readFromFile(this->resource);
+
+                add_packet(respond_packet);
+                packVec.push_back(respond_packet.packetStr());
+                
+                //decrease total number of packets
+                this->totalPackets--;
+                //increase the current sequence number by data length
+                curr_seq_no += respond_packet.getContentLength();
+        }
+        return packVec;
+}
+
 void rdt_window::clear() {
         for (int i = 0; i < window_size; i++) {
                 if (packList[i]) {
@@ -47,6 +94,7 @@ void rdt_window::clear() {
         }
         currSize = 0;
 }
+
 
 bool rdt_window::deletePacket(rdt_packet *p) {
         //return false if you can't find the packet in the window
@@ -101,11 +149,30 @@ bool rdt_window::handleACK(rdt_packet ackpacket) {
                         for (int j = 0; j <= i; j++) {
                                 slide_window();
                         }
+                        this->last_rdt_packet = ackpacket;
                         return true;
                 }
         }
         //there was no ack that matched the packets
         return false;
+}
+
+//initializes everything from a request packet
+void rdt_window::handleRequest(rdt_packet &reqpacket) {
+        this->last_rdt_packet = reqpacket;
+        this->resource = fopen(reqpacket.getData(), "rb");
+
+        if (this->resource == NULL) {
+                perror("ERROR opening file!");
+        }
+        struct stat st; 
+        stat(reqpacket.getData(), &st);
+
+        this->totalPackets = st.st_size / DATA_SIZE;
+
+        //if there is a remainder, add another packet
+        if (st.st_size % DATA_SIZE) 
+                this->totalPackets++;
 }
 
 rdt_window::~rdt_window() {

@@ -14,27 +14,6 @@
 #define WINDOW_SIZE 5
 #define TIMEOUT 5000
 
-int TOTAL_PACKETS = 0;
-FILE *RESOURCE = NULL;
-rdt_packet LAST_RECV_PACKET;
-
-void fillWindow(rdt_window &w) {
-        //get the sequence number to send from the ACK number of the last sent packet
-        int curr_seq_no = LAST_RECV_PACKET.getACK(); 
-        //for all empty slots in window and while TOTAL_PACKETS is greater than 0
-        for (int i = w.getCurrSize(); (i < w.getWindowSize() && TOTAL_PACKETS > 0); i++) {
-                //create new packet and send them
-                rdt_packet respond_packet(rdt_packet::TYPE_DATA, curr_seq_no, LAST_RECV_PACKET.getSeqNo() + LAST_RECV_PACKET.getContentLength(), 0, 0);
-                respond_packet.readFromFile(RESOURCE);
-
-                w.add_packet(respond_packet);
-                //decrease total number of packets
-                TOTAL_PACKETS--;
-                //increase the current sequence number by data length
-                curr_seq_no += respond_packet.getContentLength();
-        }
-}
-
 int main(int argc, char *argv[]) 
 {
         int socketfd = 0, mode = 0;
@@ -69,33 +48,44 @@ int main(int argc, char *argv[])
         rdt_window w(WINDOW_SIZE);
 
         while (1) {
-                if (recvfrom(socketfd, &req_string, sizeof(req_string), 0, (sockaddr*)&cli_addr, (socklen_t*)&clilen) < 0)
+                if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (sockaddr*)&cli_addr, (socklen_t*)&clilen) < 0)
                         perror("ERROR receiving from client");
                 rdt_packet req_packet(req_string);
-                LAST_RECV_PACKET = req_packet;
                 base = 1;
                 next_seq_num = 1;
                 w.clear();
+                w.handleRequest(req_packet);
 
-                RESOURCE = fopen(req_packet.getData(), "rb");
-                if (RESOURCE == NULL) {
-                        perror("ERROR opening file!");
-                }
-
-                stat(req_packet.getData(), &st);
-
-                TOTAL_PACKETS = st.st_size / DATA_SIZE;
-
-                //if there is a remainder, add another packet
-                if (st.st_size % DATA_SIZE) 
-                        TOTAL_PACKETS++;
-                printf("Total packets: %d\n", TOTAL_PACKETS);
+                printf("Total packets: %d\n", w.getTotalPackets());
 
                 //right now ack # should be 0 so the sequence numbers should be like: 0, 1024, 2048, ....
-                fillWindow(w);
+                vector<char*> result = w.fillWindow();
+                for (size_t i = 0; i < result.size(); i++) {
+                        sendto(socketfd, result[i], PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr)); 
+                }
 
-                while (TOTAL_PACKETS > 0) {
+                while (w.getTotalPackets() > 0) {
+                        //boilerplate code for timer
+                        bool timer = false;
+                        if (timer) {
+                                resendAllPackets(w, socketfd, cli_addr);
+                        } 
+                        //receive stuff
+                        if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (struct sockaddr*)&cli_addr, (socklen_t*)&clilen) > 0) {
+                                printf("Received ack!\n");
+                                rdt_packet new_req_packet(req_string); 
+                                w.handleACK(new_req_packet);
+                                
+                                //if there is empty spaces
+                                if (w.getCurrSize() != w.getWindowSize()) {
+                                        //fillWindow(w, socketfd, cli_addr);
+                                        vector<char*> new_result = w.fillWindow();
 
+                                        for (size_t i = 0; i < new_result.size(); i++) {
+                                                sendto(socketfd, new_result[i], PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr)); 
+                                        }
+                                }
+                        }
                 }
         }
 }
