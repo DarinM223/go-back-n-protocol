@@ -25,7 +25,7 @@ void printWindow(rdt_window &w) {
 
 int main() 
 {
-        rdt_window w(5);
+        rdt_window w(2);
         rdt_packet req_packet;
         req_packet.copyToData("Hello.txt", 10);
 
@@ -40,11 +40,30 @@ int main()
 
         printWindow(w);
 
-        for (int i = 0; i < result.size(); i++) {
-                //cout << result[i] << endl;
+        for (size_t i = 0; i < result.size(); i++) {
                 rdt_packet p(result[i]);
                 char data[DATA_SIZE+1];
                 strcpy(data, p.getData());
+                data[p.getContentLength()] = '\0';
+                cout << p.getSeqNo() << endl << data << endl;
+        }
+
+        rdt_packet ackpacket(rdt_packet::TYPE_ACK, 0, 2048, 0, 0);
+
+        //test handling ACK
+        w.handleACK(ackpacket);
+
+        printWindow(w);
+
+        vector<char*> result2 = w.fillWindow();
+
+        printWindow(w);
+
+        for (size_t i = 0; i < result2.size(); i++) {
+                rdt_packet p(result2[i]);
+                char data[DATA_SIZE+1];
+                strcpy(data, p.getData());
+                data[p.getContentLength()] = '\0';
                 cout << p.getSeqNo() << endl << data << endl;
         }
 
