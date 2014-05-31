@@ -30,7 +30,7 @@
 //3) if out of order packet, discard and resend last received sequence number
 
 //TODO: change request and ACKs so it properly sends ACKS
-double corrupt_prob = 0;
+double corrupt_prob = 0.5;
 double loss_prob = 0;
 FILE *outputFile = NULL;
 

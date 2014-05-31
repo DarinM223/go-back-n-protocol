@@ -8,11 +8,13 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <time.h>
 #include "rdt_packet.h"
 #include "rdt_window.h"
 
 #define WINDOW_SIZE 5
-#define TIMEOUT 5000
+#define TIMEOUT 5
 
 int main(int argc, char *argv[]) 
 {
@@ -47,7 +49,7 @@ int main(int argc, char *argv[])
         char req_string[DATA_SIZE];
         rdt_window w(WINDOW_SIZE);
 
-        while (1) {
+        //while (1) {
                 if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (sockaddr*)&cli_addr, (socklen_t*)&clilen) < 0)
                         perror("ERROR receiving from client");
                 rdt_packet req_packet(req_string);
@@ -60,7 +62,6 @@ int main(int argc, char *argv[])
 
                 printf("Total packets: %d\n", w.getTotalPackets());
 
-                //right now ack # should be 0 so the sequence numbers should be like: 0, 1024, 2048, ....
                 vector<char*> result = w.fillWindow();
                 printf("----\n");
                 for (size_t i = 0; i < result.size(); i++) {
@@ -70,17 +71,22 @@ int main(int argc, char *argv[])
                 }
                 printf("----\n");
 
-                while (w.getTotalPackets() > 0) {
+                fcntl(socketfd, F_SETFL, O_NONBLOCK);
+
+                while (w.getTotalPackets() > 0 || w.getCurrSize() > 0) {
                         //boilerplate code for timer
-                        bool timer = false;
-                        if (timer) {
+                        //printf("Time is %ld!\n", time(NULL));
+                        //bool timer = false;
+                        if (time(NULL) >= timer + TIMEOUT) {
                                 resendAllPackets(w, socketfd, cli_addr);
+                                timer = time(NULL);
                         } 
                         //receive stuff
                         if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (struct sockaddr*)&cli_addr, (socklen_t*)&clilen) > 0) {
                                 rdt_packet new_req_packet(req_string); 
                                 printf("Received ack seq #%d ack #%d content length #%d\n", new_req_packet.getSeqNo(), new_req_packet.getACK(), new_req_packet.getContentLength());
-                                w.handleACK(new_req_packet);
+                                //if the window slid, reset timer
+                                if (w.handleACK(new_req_packet)) timer = time(NULL);
                                 
                                 //if there is empty spaces
                                 if (w.getCurrSize() != w.getWindowSize()) {
@@ -97,6 +103,5 @@ int main(int argc, char *argv[])
                                 }
                         }
                 }
-                return 0;
-        }
+        //}
 }

@@ -23,6 +23,7 @@ class rdt_window
                 int getWindowSize() { return window_size; }
                 int getCurrSize() { return currSize; }
                 bool getPacket(int index, rdt_packet &p);
+                char* getPacketStr(int index);
 
                 rdt_window(int window_size);
                 rdt_window(const rdt_window& win);

@@ -13,10 +13,9 @@
 
 void resendAllPackets(rdt_window &w, int sockfd, struct sockaddr_in addr) {
         for (int i = 0; i < w.getCurrSize(); i++) {
-                rdt_packet p;
-                w.getPacket(i, p);
-                
-                char *strp = p.packetStr();
+                char *strp = w.getPacketStr(i);
+                rdt_packet p(strp);
+                printf("Resent packet seq #%d ack #%d content length #%d\n", p.getSeqNo(), p.getACK(), p.getContentLength());
                 sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&addr, sizeof(addr));
         } 
 }
@@ -64,7 +63,8 @@ void rdt_window::slide_window() {
                 packList[i-1] = packList[i];
                 packList[i] = NULL;
         }
-        currSize--;
+        if (currSize - 1 >= 0)
+                currSize--;
 }
 
 vector<char*> rdt_window::fillWindow() {
@@ -79,7 +79,8 @@ vector<char*> rdt_window::fillWindow() {
                 packVec.push_back(respond_packet.packetStr());
                 
                 //decrease total number of packets
-                this->totalPackets--;
+                if (this->totalPackets - 1 >= 0)
+                        this->totalPackets--;
                 //increase the current sequence number by data length
                 curr_seq_no += respond_packet.getContentLength();
         }
@@ -130,6 +131,14 @@ bool rdt_window::add_packet(rdt_packet p) {
         return true;
 }
 
+char* rdt_window::getPacketStr(int index) {
+        if (!(index >= 0 && index < currSize)) return NULL;
+        rdt_packet *ptr = packList[index];
+        if (dependencies.find(ptr) == dependencies.end()) return NULL;
+        if (dependencies[ptr] <= 0) return NULL;
+        return ptr->packetStr();
+}
+
 bool rdt_window::getPacket(int index, rdt_packet &p) {
         if (!(index >= 0 && index < currSize)) return false;
         rdt_packet *ptr = packList[index];
@@ -148,6 +157,7 @@ bool rdt_window::handleACK(rdt_packet ackpacket) {
                 //once you find a matching packet, slide window for every element before and including the matching packet
                 if (p->properACKForPacket(ackpacket)) {
                         for (int j = 0; j <= i; j++) {
+                                printf("Sliding window\n");
                                 slide_window();
                         }
                         //this->last_rdt_packet = ackpacket;
