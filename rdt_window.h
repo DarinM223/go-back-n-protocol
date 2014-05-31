@@ -11,6 +11,7 @@ class rdt_window
                 rdt_packet **packList; //list of pointers to packets
                 int window_size;
                 int currSize;
+                int curr_seq_no;
                 int totalPackets;
                 FILE* resource;
                 rdt_packet last_rdt_packet;

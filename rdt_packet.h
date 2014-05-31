@@ -37,7 +37,7 @@ class rdt_packet
                 rdt_packet(const rdt_packet& p);
                 rdt_packet operator=(const rdt_packet& p);
 
-                bool properACKForPacket(rdt_packet ackpacket); //TODO: Implement this
+                bool properACKForPacket(rdt_packet ackpacket); 
 
                 //default constructor creates a request packet
                 rdt_packet() : type(TYPE_REQUEST), seq_no(0), ack(0), fin(0) { }

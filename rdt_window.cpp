@@ -27,6 +27,7 @@ rdt_window::rdt_window(int window_size) {
         currSize = 0;
         this->totalPackets = 0;
         this->resource = NULL;
+        this->curr_seq_no = 0;
 }
 rdt_window::rdt_window(const rdt_window& win) {
         this->packList = new rdt_packet* [win.window_size];
@@ -38,6 +39,7 @@ rdt_window::rdt_window(const rdt_window& win) {
         this->currSize = win.currSize;
         this->totalPackets = 0;
         this->resource = NULL;
+        this->curr_seq_no = win.curr_seq_no;
 }
 rdt_window rdt_window::operator=(const rdt_window& win) {
         this->packList = new rdt_packet* [win.window_size];
@@ -49,6 +51,7 @@ rdt_window rdt_window::operator=(const rdt_window& win) {
         this->currSize = win.currSize;
         this->totalPackets = 0;
         this->resource = NULL;
+        this->curr_seq_no = win.curr_seq_no;
         return *this;
 }
 
@@ -66,8 +69,6 @@ void rdt_window::slide_window() {
 
 vector<char*> rdt_window::fillWindow() {
         vector<char*> packVec;
-        //int curr_seq_no = LAST_RECV_PACKET.getACK(); 
-        int curr_seq_no = this->last_rdt_packet.getACK();
         //for all empty slots in window and while TOTAL_PACKETS is greater than 0
         for (int i = getCurrSize(); (i < getWindowSize() && this->totalPackets > 0); i++) {
                 //create new packet and send them
@@ -149,7 +150,7 @@ bool rdt_window::handleACK(rdt_packet ackpacket) {
                         for (int j = 0; j <= i; j++) {
                                 slide_window();
                         }
-                        this->last_rdt_packet = ackpacket;
+                        //this->last_rdt_packet = ackpacket;
                         return true;
                 }
         }
@@ -160,6 +161,7 @@ bool rdt_window::handleACK(rdt_packet ackpacket) {
 //initializes everything from a request packet
 void rdt_window::handleRequest(rdt_packet &reqpacket) {
         this->last_rdt_packet = reqpacket;
+        this->curr_seq_no = reqpacket.getACK();
         this->resource = fopen(reqpacket.getData(), "rb");
 
         if (this->resource == NULL) {

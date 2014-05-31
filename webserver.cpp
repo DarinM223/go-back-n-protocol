@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
         serv_addr.sin_port = htons(portno);
 
 
-        if (bind(socketfd, (struct socketaddr*)&serv_addr, sizeof(serv_addr)) < 0)
+        if (bind(socketfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
                 perror("Error binding!");
 
         clilen = sizeof(cli_addr);
@@ -87,5 +87,6 @@ int main(int argc, char *argv[])
                                 }
                         }
                 }
+                return 0;
         }
 }
