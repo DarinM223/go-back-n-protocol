@@ -51,6 +51,8 @@ int main(int argc, char *argv[])
                 if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (sockaddr*)&cli_addr, (socklen_t*)&clilen) < 0)
                         perror("ERROR receiving from client");
                 rdt_packet req_packet(req_string);
+
+                printf("Received request seq #%d ack #%d content length #%d\n",  req_packet.getSeqNo(), req_packet.getACK(), req_packet.getContentLength());
                 base = 1;
                 next_seq_num = 1;
                 w.clear();
@@ -60,9 +62,13 @@ int main(int argc, char *argv[])
 
                 //right now ack # should be 0 so the sequence numbers should be like: 0, 1024, 2048, ....
                 vector<char*> result = w.fillWindow();
+                printf("----\n");
                 for (size_t i = 0; i < result.size(); i++) {
+                        rdt_packet p(result[i]);
+                        printf("Sent packet seq #%d ack #%d content length #%d\n", p.getSeqNo(), p.getACK(), p.getContentLength());
                         sendto(socketfd, result[i], PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr)); 
                 }
+                printf("----\n");
 
                 while (w.getTotalPackets() > 0) {
                         //boilerplate code for timer
@@ -72,8 +78,8 @@ int main(int argc, char *argv[])
                         } 
                         //receive stuff
                         if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (struct sockaddr*)&cli_addr, (socklen_t*)&clilen) > 0) {
-                                printf("Received ack!\n");
                                 rdt_packet new_req_packet(req_string); 
+                                printf("Received ack seq #%d ack #%d content length #%d\n", new_req_packet.getSeqNo(), new_req_packet.getACK(), new_req_packet.getContentLength());
                                 w.handleACK(new_req_packet);
                                 
                                 //if there is empty spaces
@@ -81,9 +87,13 @@ int main(int argc, char *argv[])
                                         //fillWindow(w, socketfd, cli_addr);
                                         vector<char*> new_result = w.fillWindow();
 
+                                        printf("----\n");
                                         for (size_t i = 0; i < new_result.size(); i++) {
+                                                rdt_packet p(new_result[i]);
+                                                printf("Sent packet seq #%d ack #%d content length #%d\n", p.getSeqNo(), p.getACK(), p.getContentLength());
                                                 sendto(socketfd, new_result[i], PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr)); 
                                         }
+                                        printf("----\n");
                                 }
                         }
                 }

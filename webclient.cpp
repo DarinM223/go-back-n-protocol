@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
         //open the file to be written to (filename.out)
         char *out;
         asprintf(&out, "%s%s", filename, ".out");
+        printf("File name: %s\n", out);
         outputFile = fopen(out, "w");
         free(out);
 
@@ -97,11 +98,12 @@ int main(int argc, char *argv[])
                 } else if (r < loss_prob) {
                         printf("Packet was lost!\n");
                 } else if (p.getType() == rdt_packet::TYPE_DATA && p.getSeqNo() == last_seqpacket.getSeqNo() + last_seqpacket.getContentLength()) { //received in order packet 
-                        printf("Received packet %d that is equal to %d\n", p.getSeqNo(), last_seqpacket.getSeqNo() + last_seqpacket.getContentLength());
+                        printf("Received packet seq #%d ack #%d contentlength #%d\n", p.getSeqNo(), p.getACK(), p.getContentLength());
                         last_seqpacket = p;
                         last_contentlength = p.getContentLength();
                         //send ACK of the received packet
                         rdt_packet ack_packet(rdt_packet::TYPE_ACK, p.getACK(), p.getSeqNo()+p.getContentLength()+p.isFin(), 0, p.isFin());
+                        printf("Sent ack seq #%d ack #%d content length #%d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.getContentLength());
                         strp = ack_packet.packetStr();
                         sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
                         free(strp);
@@ -114,8 +116,7 @@ int main(int argc, char *argv[])
                         }
                         if (p.getType() == rdt_packet::TYPE_END) break; //if the packet is the end of the packet, stop receiving
                 } else if (p.getType() == rdt_packet::TYPE_DATA) { //if packet is out of order resend ack for last received
-                        //printf("Packet was out of order (%d). Sending ACK for packet %d\n", last_seqpacket.getSeqNo() + last_seqpacket.getContentLength(), last_seqpacket.getSeqNo());
-                        printf("Received packet %d that is not equal to %d\n", p.getSeqNo(), last_seqpacket.getSeqNo() + last_seqpacket.getContentLength());
+                        printf("Packet was out of order (%d). Sending ACK for packet %d\n", p.getSeqNo(), last_seqpacket.getSeqNo());
                         //send ACK of the last properly received sequence number
                         rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
                         strp = ack_packet.packetStr();
