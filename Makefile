@@ -20,13 +20,13 @@ TESTFILE = packet_unit_test window_unit_test window_fill_unit_test
 
 all: hello
 
-hello: webserver webclient
+hello: server client
 
-webserver: webserver.o $(MAINOBJ)
-	$(CC) webserver.o $(MAINOBJ) -o webserver
+server: server.o $(MAINOBJ)
+	$(CC) server.o $(MAINOBJ) -o server
 
-webclient: webclient.o $(MAINOBJ)
-	$(CC) webclient.o $(MAINOBJ) -o webclient
+client: client.o $(MAINOBJ)
+	$(CC) client.o $(MAINOBJ) -o client
 
 
 %.o: %.c $(DEPS)
@@ -38,4 +38,4 @@ webclient: webclient.o $(MAINOBJ)
 test: $(TESTFILE)
 
 clean:
-	rm -rf *.o webserver webclient *.testexec $(TESTFILE)
+	rm -rf *.o server client *.testexec $(TESTFILE)
