@@ -12,9 +12,11 @@
 #include <time.h>
 #include "rdt_packet.h"
 #include "rdt_window.h"
+#include <stdio.h>
 
 //#define WINDOW_SIZE 5
 #define TIMEOUT 5
+#define TIME_WAIT 15 
 
 int main(int argc, char *argv[]) 
 {
@@ -24,7 +26,7 @@ int main(int argc, char *argv[])
         int window_size;
         double corrupt_prob, loss_prob;
 
-        time_t timer;
+        time_t timer = -1;
 
         if (argc != 5) {
                 fprintf(stderr, "Usage: %s port_number congestion_window_size prob_loss prob_corruption\n", argv[0]);
@@ -74,23 +76,49 @@ int main(int argc, char *argv[])
         }
 
         fcntl(socketfd, F_SETFL, O_NONBLOCK);
-
-        while (w.getTotalPackets() > 0 || w.getCurrSize() > 0) {
-                if (time(NULL) >= timer + TIMEOUT) {
+        int state = 0;
+        rdt_packet last_recv_finack;
+        while (1) {
+                if (timer != -1 && time(NULL) >= timer + TIMEOUT && state != 2) {
                         printf("Sender: (ACK lost or corrupted) Timeout\n");
                         resendAllPackets(w, socketfd, cli_addr);
                         timer = time(NULL);
-                } 
+                } else if (state == 2 && time(NULL) >= timer + TIME_WAIT) { //if the wait time is up and client didn't resend then we close
+                        printf("Sender: connection close\n");
+                        break;
+                }
                 //receive stuff
                 if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (struct sockaddr*)&cli_addr, (socklen_t*)&clilen) > 0) {
-                        rdt_packet new_req_packet(req_string); 
-                        printf("Sender: ACK received seq#%d, ACK#%d, FIN %d, content-length: %d\n", new_req_packet.getSeqNo(), new_req_packet.getACK(), new_req_packet.isFin(), new_req_packet.getContentLength());
+                        rdt_packet recv_ack_packet(req_string); 
+                        printf("Sender: ACK received seq#%d, ACK#%d, FIN %d, content-length: %d\n", recv_ack_packet.getSeqNo(), recv_ack_packet.getACK(), recv_ack_packet.isFin(), recv_ack_packet.getContentLength());
                         //if the window slid, reset timer
-                        if (w.handleACK(new_req_packet)) timer = time(NULL);
+                        bool window_slid = false;
+                        if ((window_slid = w.handleACK(recv_ack_packet))) timer = time(NULL);
                         
-                        //if there is empty spaces
-                        if (w.getCurrSize() != w.getWindowSize()) {
-                                //fillWindow(w, socketfd, cli_addr);
+                        //if the new current size is now zero, save the last ack
+                        if (w.getCurrSize() <= 0) {
+                                if (state == 0) { //if state is 0 that means you just received the ack for the last real data packet
+                                        printf("Sender: file transfer complete\n");
+                                        //time to send the fin packet
+                                        rdt_packet fin_packet(rdt_packet::TYPE_DATA, recv_ack_packet.getACK(), recv_ack_packet.getSeqNo(), 0, 1);
+                                        w.add_packet(fin_packet);
+                                        printf("Sender: DATA sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", fin_packet.getSeqNo(), fin_packet.getACK(), fin_packet.isFin(), fin_packet.getContentLength());
+                                        sendto(socketfd, fin_packet.packetStr(), PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr));
+                                        state = 1;
+                                } else if (state == 1 && window_slid) { //if your are waiting for the ack of the fin packet and the window slid
+                                        last_recv_finack = recv_ack_packet;
+                                        rdt_packet fin_packet(rdt_packet::TYPE_ACK, recv_ack_packet.getACK(), recv_ack_packet.getSeqNo() + recv_ack_packet.isFin(), 0, 1);
+                                        printf("Sender: FINACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", fin_packet.getSeqNo(), fin_packet.getACK(), fin_packet.isFin(), fin_packet.getContentLength());
+                                        sendto(socketfd, fin_packet.packetStr(), PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr));
+                                        state = 2;
+                                } else if (state == 2 && last_recv_finack.getACK() == recv_ack_packet.getACK()) { //if the client is resending the old finack
+                                        //then it didn't get the finack we sent
+                                        //so resend finack
+                                        rdt_packet fin_packet(rdt_packet::TYPE_ACK, recv_ack_packet.getACK(), recv_ack_packet.getSeqNo() + recv_ack_packet.isFin(), 0, 1);
+                                        printf("Sender: FINACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", fin_packet.getSeqNo(), fin_packet.getACK(), fin_packet.isFin(), fin_packet.getContentLength());
+                                        sendto(socketfd, fin_packet.packetStr(), PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr));
+                                }
+                        } else if (w.getCurrSize() != w.getWindowSize()) {
                                 vector<char*> new_result = w.fillWindow();
 
                                 for (size_t i = 0; i < new_result.size(); i++) {
@@ -101,5 +129,4 @@ int main(int argc, char *argv[])
                         }
                 }
         }
-        printf("Sender: file transfer complete\n");
 }

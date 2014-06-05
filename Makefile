@@ -7,7 +7,7 @@
 #
 
 CC=g++
-CFLAGS=-c
+CFLAGS=-c 
 
 # header files that are needed to compile with to generate the objects
 DEPS = rdt_packet.h rdt_window.h

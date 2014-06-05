@@ -1,8 +1,7 @@
 #include "rdt_packet.h"
 #include <map>
 #include <vector>
-using std::vector;
-using std::map;
+using namespace std;
 
 class rdt_window
 {

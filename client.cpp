@@ -8,7 +8,8 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
-
+#include <time.h>
+#include <fcntl.h>
 #include "rdt_packet.h"
 #define SERVER_PORT 8080
 
@@ -23,6 +24,8 @@
 //./server portnumber cong_window prob_loss prob_corr
 //./client hostname portnumber filename prob_lost prob_corr 
 //need timestamp
+
+#define  TIMEOUT 5
 
 int main(int argc, char *argv[]) 
 {
@@ -80,50 +83,81 @@ int main(int argc, char *argv[])
         sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
         free(strp);
         strp = NULL;
+        time_t timer = -1;
 
+        fcntl(sockfd, F_SETFL, O_NONBLOCK);
+        rdt_packet last_fin;
+        int state = 0;
         while (1) {
-                recvfrom(sockfd, pkt, PACKET_SIZE, 0, (struct sockaddr*) &si_send, &slen);
-                //get packet from response
-                rdt_packet p(pkt);
-                double r = random_num();
-                if (r < corrupt_prob) {
-                        //if packet is corrupted resend ACK for last received sequence number
-                        printf("Receiver: Packet %d was corrupted!\n", p.getSeqNo());
-                        rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
-                        strp = ack_packet.packetStr();
-                        printf("Receiver: ACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
-                        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
-                        free(strp);
-                        strp = NULL;
-                } else if (r < loss_prob) { //if packet is lost, drop it
-                        printf("Receiver: Packet was lost!\n");
-                } else if (p.getType() == rdt_packet::TYPE_DATA && p.getSeqNo() == last_seqpacket.getSeqNo() + last_seqpacket.getContentLength()) { //received in order packet 
-                        printf("Receiver: DATA received seq#%d, ACK#%d, FIN %d, content-length: %d\n", p.getSeqNo(), p.getACK(), p.isFin(), p.getContentLength());
-                        last_seqpacket = p;
-                        last_contentlength = p.getContentLength();
-                        //send ACK of the received packet
-                        rdt_packet ack_packet(rdt_packet::TYPE_ACK, p.getACK(), p.getSeqNo()+p.getContentLength()+p.isFin(), 0, p.isFin());
-                        strp = ack_packet.packetStr();
-                        printf("Receiver: ACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
-                        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
-                        free(strp);
-                        strp = NULL;
+                //if timeout resend last finack
+                if (timer != -1 && time(NULL) >= timer + TIMEOUT && state == 1) {
+                        printf("Sender: (FINACK lost or corrupted) Timeout\n");
+                        rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_fin.getACK(), last_fin.getSeqNo() + last_fin.getContentLength() + last_fin.isFin(), 0, last_fin.isFin());
+                        printf("Receiver: FINACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
+                        sendto(sockfd, ack_packet.packetStr(), PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+                        timer = time(NULL); //reset timer
+                }
+                if (recvfrom(sockfd, pkt, PACKET_SIZE, 0, (struct sockaddr*) &si_send, &slen) > 0) {
+                        //get packet from response
+                        rdt_packet p(pkt);
+                        double r = random_num();
+                        if (r < corrupt_prob) {
+                                //if packet is corrupted resend ACK for last received sequence number
+                                printf("Receiver: Packet %d was corrupted!\n", p.getSeqNo());
+                                rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
+                                strp = ack_packet.packetStr();
+                                printf("Receiver: ACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
+                                sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+                                free(strp);
+                                strp = NULL;
+                        } else if (r < loss_prob) { //if packet is lost, drop it
+                                printf("Receiver: Packet was lost!\n");
+                        } else if (p.isFin()) { //if FIN
+                                if (state == 0) { //if just received fin, send finack in response
+                                        printf("Receiver: DATA received seq#%d, ACK#%d, FIN %d, content-length: %d\n", p.getSeqNo(), p.getACK(), p.isFin(), p.getContentLength());
+                                        rdt_packet ack_packet(rdt_packet::TYPE_ACK, p.getACK(), p.getSeqNo()+p.getContentLength()+p.isFin(), 0, p.isFin());
+                                        strp = ack_packet.packetStr();
+                                        last_fin = p;
+                                        printf("Receiver: FINACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
+                                        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+                                        free(strp);
+                                        strp = NULL;
 
-                        for (int i = 0; i < p.getContentLength(); i++) {
-                                char byte = *(p.getData()+i);
-                                fprintf(outputFile, "%c", byte);
-                                fflush(stdout);
-                        }
-                } else if (p.getType() == rdt_packet::TYPE_DATA) { //if packet is out of order resend ack for last received
-                        printf("Receiver: Packet %d was out of order\n", p.getSeqNo());
-                        //send ACK of the last properly received sequence number
-                        rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
-                        strp = ack_packet.packetStr();
-                        printf("Receiver: ACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
-                        sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
-                        free(strp);
-                        strp = NULL;
-                } 
+                                        timer = time(NULL); //set timer
+                                        state = 1; //go to next state
+                                } else if (state == 1) { //if received finack to the finack, close the connection
+                                        printf("Receiver: FINACK received seq#%d, ACK#%d, FIN %d, content-length: %d\n", p.getSeqNo(), p.getACK(), p.isFin(), p.getContentLength());
+                                        printf("Receiver: close connection\n");
+                                        break;
+                                }
+                        } else if (p.getType() == rdt_packet::TYPE_DATA && p.getSeqNo() == last_seqpacket.getSeqNo() + last_seqpacket.getContentLength()) { //received in order packet 
+                                printf("Receiver: DATA received seq#%d, ACK#%d, FIN %d, content-length: %d\n", p.getSeqNo(), p.getACK(), p.isFin(), p.getContentLength());
+                                last_seqpacket = p;
+                                last_contentlength = p.getContentLength();
+                                //send ACK of the received packet
+                                rdt_packet ack_packet(rdt_packet::TYPE_ACK, p.getACK(), p.getSeqNo()+p.getContentLength()+p.isFin(), 0, p.isFin());
+                                strp = ack_packet.packetStr();
+                                printf("Receiver: ACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
+                                sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+                                free(strp);
+                                strp = NULL;
+
+                                for (int i = 0; i < p.getContentLength(); i++) {
+                                        char byte = *(p.getData()+i);
+                                        fprintf(outputFile, "%c", byte);
+                                        fflush(stdout);
+                                }
+                        } else if (p.getType() == rdt_packet::TYPE_DATA) { //if packet is out of order resend ack for last received
+                                printf("Receiver: Packet %d was out of order\n", p.getSeqNo());
+                                //send ACK of the last properly received sequence number
+                                rdt_packet ack_packet(rdt_packet::TYPE_ACK, last_seqpacket.getACK(), last_seqpacket.getSeqNo()+last_seqpacket.getContentLength()+last_seqpacket.isFin(), 0, last_seqpacket.isFin());
+                                strp = ack_packet.packetStr();
+                                printf("Receiver: ACK sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", ack_packet.getSeqNo(), ack_packet.getACK(), ack_packet.isFin(), ack_packet.getContentLength());
+                                sendto(sockfd, strp, PACKET_SIZE, 0, (struct sockaddr*)&si_send, sizeof(si_send));
+                                free(strp);
+                                strp = NULL;
+                        } 
+                }
         }
         printf("close connection\n");
         close(sockfd);

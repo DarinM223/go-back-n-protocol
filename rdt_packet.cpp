@@ -76,7 +76,7 @@ void rdt_packet::copyToData(char *stuff, int size) {
 }
 
 bool rdt_packet::properACKForPacket(rdt_packet ackpacket) {
-        if (ackpacket.getACK() == (this->getSeqNo() + this->getContentLength()))
+        if (ackpacket.getACK() == (this->getSeqNo() + this->getContentLength() + this->isFin()))
                 return true;
         return false;
 }

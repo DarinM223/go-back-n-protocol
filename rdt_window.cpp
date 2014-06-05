@@ -157,7 +157,8 @@ bool rdt_window::handleACK(rdt_packet ackpacket) {
                 //once you find a matching packet, slide window for every element before and including the matching packet
                 if (p->properACKForPacket(ackpacket)) {
                         for (int j = 0; j <= i; j++) {
-                                printf("Sliding window\n");
+                                if (!p->isFin())
+                                        printf("Sliding window\n");
                                 slide_window();
                         }
                         //this->last_rdt_packet = ackpacket;
