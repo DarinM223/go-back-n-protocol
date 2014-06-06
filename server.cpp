@@ -94,13 +94,22 @@ int main(int argc, char *argv[])
                 //receive stuff
                 if (recvfrom(socketfd, &req_string, DATA_SIZE, 0, (struct sockaddr*)&cli_addr, (socklen_t*)&clilen) > 0) {
                         rdt_packet recv_ack_packet(req_string); 
+                        double r = random_num();
+                        double r2 = random_num();
+                        if (r < corrupt_prob) {
+                                printf("Sender: Packet was corrupted!\n");
+                                continue;
+                        } 
+                        if (r2 < loss_prob) {
+                                printf("Sender: Packet was lost!\n");
+                                continue;
+                        }
                         printf("Sender: ACK received seq#%d, ACK#%d, FIN %d, content-length: %d\n", recv_ack_packet.getSeqNo(), recv_ack_packet.getACK(), recv_ack_packet.isFin(), recv_ack_packet.getContentLength());
                         //if the window slid, reset timer
                         bool window_slid = false;
                         if ((window_slid = w.handleACK(recv_ack_packet))) timer = time(NULL);
                         
-                        //if the new current size is now zero, save the last ack
-                        if (w.getCurrSize() <= 0) {
+                        if (w.getCurrSize() <= 0) { //if the new current size is now zero, save the last ack
                                 if (state == 0) { //if state is 0 that means you just received the ack for the last real data packet
                                         printf("Sender: file transfer complete\n");
                                         //time to send the fin packet
