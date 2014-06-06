@@ -74,6 +74,9 @@ int main(int argc, char *argv[])
                 rdt_packet p(result[i]);
                 printf("Sender: DATA sent seq#%d, ACK#%d, FIN %d, content-length: %d\n", p.getSeqNo(), p.getACK(), p.isFin(), p.getContentLength());
                 sendto(socketfd, result[i], PACKET_SIZE, 0, (struct sockaddr*) &cli_addr, sizeof(cli_addr)); 
+                if (i == 0) {
+                        timer = time(NULL);
+                }
         }
 
         fcntl(socketfd, F_SETFL, O_NONBLOCK);
