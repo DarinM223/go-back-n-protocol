@@ -33,18 +33,22 @@ rdt_packet::rdt_packet(char* s) {
 }
 
 rdt_packet::rdt_packet(const rdt_packet &p) {
-        this->type = p.type;
-        this->seq_no = p.seq_no;
-        this->ack = p.ack;
-        this->fin = p.fin;
-        this->contentLength = p.contentLength;
+        char *s = p.packetStr();
+        memcpy(&this->type, s, 4);
+        memcpy(&this->seq_no, s+4, 4);
+        memcpy(&this->contentLength, s+8, 4);
+        memcpy(&this->ack, s+12, 4);
+        memcpy(&this->fin, s+16, 4);
+        memcpy(&this->data, s+20, DATA_SIZE);
 }
 rdt_packet rdt_packet::operator=(const rdt_packet &p) {
-        this->type = p.type;
-        this->seq_no = p.seq_no;
-        this->ack = p.ack;
-        this->fin = p.fin;
-        this->contentLength = p.contentLength;
+        char *s = p.packetStr();
+        memcpy(&this->type, s, 4);
+        memcpy(&this->seq_no, s+4, 4);
+        memcpy(&this->contentLength, s+8, 4);
+        memcpy(&this->ack, s+12, 4);
+        memcpy(&this->fin, s+16, 4);
+        memcpy(&this->data, s+20, DATA_SIZE);
         return *this;
 }
 /*

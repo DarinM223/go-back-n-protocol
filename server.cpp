@@ -15,8 +15,8 @@
 #include <stdio.h>
 
 //#define WINDOW_SIZE 5
-#define TIMEOUT 5
-#define TIME_WAIT 15 
+#define TIMEOUT 2
+#define TIME_WAIT 6
 
 int main(int argc, char *argv[]) 
 {
@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
         int clilen, portno, base, next_seq_num;
         int window_size;
         double corrupt_prob, loss_prob;
+        srand(time(NULL));
 
         time_t timer = -1;
 

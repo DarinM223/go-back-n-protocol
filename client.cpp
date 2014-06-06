@@ -25,12 +25,13 @@
 //./client hostname portnumber filename prob_lost prob_corr 
 //need timestamp
 
-#define  TIMEOUT 5
+#define  TIMEOUT 2
 
 int main(int argc, char *argv[]) 
 {
         int sockfd;
         struct sockaddr_in si_send;
+        srand(time(NULL));
 
         double corrupt_prob;
         double loss_prob; 
@@ -159,7 +160,6 @@ int main(int argc, char *argv[])
                         } 
                 }
         }
-        printf("close connection\n");
         close(sockfd);
         fclose(outputFile);
 }
